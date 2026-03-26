@@ -93,7 +93,7 @@ async function updateConsultationStatus(req, res, next) {
     }
 
     if (!CONSULTATION_STATUSES.has(status)) {
-      return errorResponse(res, 400, 'VALIDATION_ERROR', "status must be one of ['in_progress','completed','cancelled']");
+      return errorResponse(res, 400, 'VALIDATION_ERROR', "status must be one of ['in_progress','completed]");
     }
 
     const doctorId = req.doctor?.id;
@@ -157,7 +157,7 @@ async function upsertPrescription(req, res, next) {
     const { status, patient_id } = consultation.rows[0];
     
 
-    if (status === 'completed' || status === 'cancelled') {
+    if (status === 'completed') {
       return errorResponse(res, 403, 'FORBIDDEN', 
         `Cannot modify prescription for ${status} consultation`);
     }
@@ -236,7 +236,7 @@ async function getPrescription(req, res, next) {
     }
 
     const q = await pool.query(
-      `p.id AS prescription_id,
+      `select p.id AS prescription_id,
          p.consultation_id,
          p.patient_id,
          p.doctor_id,

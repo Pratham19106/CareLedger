@@ -1,10 +1,10 @@
 const express = require('express');
-// const { authenticate } = require('../middlewares/authMiddleware');
+const { authenticate } = require('../middlewares/authMiddleware');
+const { requireRole } = require('../middlewares/roleMiddleware');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const ocrController = require('../controllers/ocrController');
-const { successResponse } = require('../utils/responseFormatter');
 const uploadsDir = path.join(__dirname, '../../OCR_processor/uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -37,9 +37,16 @@ const router = express.Router();
 
 router.post(
     '/scan',
-    // authenticate,
     upload.single('file'),
     ocrController.ocrScan
+);
+
+router.post(
+    '/legacy-upload',
+    authenticate,
+    requireRole('patient'),
+    upload.single('file'),
+    ocrController.ocrScanLegacyForPatient
 );
 
 router.get("/health", ocrController.ocrHealth);

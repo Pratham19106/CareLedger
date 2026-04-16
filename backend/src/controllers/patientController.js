@@ -317,6 +317,149 @@ async function getOwnPrescription(req, res, next) {
   }
 }
 
+async function getOwnPastPrescriptions(req, res, next) {
+  try {
+    const userId = req.user?.id;
+
+    if (req.user?.role !== 'patient') {
+      return errorResponse(res, 403, 'FORBIDDEN', 'Only patients can access this endpoint');
+    }
+
+    const patientProfile = await pool.query(
+      `SELECT id FROM patients WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (patientProfile.rowCount === 0) {
+      return errorResponse(res, 404, 'NOT_FOUND', 'Patient profile not found');
+    }
+
+    const patientId = patientProfile.rows[0].id;
+
+    const prescriptions = await pool.query(
+      `SELECT
+         p.id AS prescription_id,
+         p.consultation_id,
+         p.patient_id,
+         p.doctor_id,
+         p.issued_at,
+         p.doctor_notes,
+         p.created_at,
+         COALESCE(c.status::text, 'imported') AS status,
+         COALESCE(c.consultation_date, p.issued_at, p.created_at) AS reference_date,
+         d.full_name AS doctor_name,
+         d.specialization,
+         cl.clinic_name,
+         (p.consultation_id IS NULL) AS is_legacy_import,
+         COALESCE(item_counts.items_count, 0) AS items_count
+       FROM prescriptions p
+       LEFT JOIN consultations c ON c.id = p.consultation_id
+       LEFT JOIN doctors d ON d.id = p.doctor_id
+       LEFT JOIN LATERAL (
+         SELECT clinic_name
+         FROM clinics
+         WHERE doctor_id = d.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) cl ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS items_count
+         FROM prescription_items pi
+         WHERE pi.prescription_id = p.id
+       ) item_counts ON true
+       WHERE p.patient_id = $1
+       ORDER BY COALESCE(c.consultation_date, p.issued_at, p.created_at) DESC`,
+      [patientId]
+    );
+
+    return successResponse(res, 200, prescriptions.rows, 'Operation successful.');
+  } catch (err) {
+    return next(err);
+  }
+}
+
+async function getOwnPrescriptionById(req, res, next) {
+  try {
+    const { prescriptionId } = req.params;
+    const userId = req.user?.id;
+
+    if (!isUuid(prescriptionId)) {
+      return errorResponse(res, 400, 'VALIDATION_ERROR', 'prescriptionId must be a valid UUID');
+    }
+
+    if (req.user?.role !== 'patient') {
+      return errorResponse(res, 403, 'FORBIDDEN', 'Only patients can access this endpoint');
+    }
+
+    const patientProfile = await pool.query(
+      `SELECT id FROM patients WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (patientProfile.rowCount === 0) {
+      return errorResponse(res, 404, 'NOT_FOUND', 'Patient profile not found');
+    }
+
+    const patientId = patientProfile.rows[0].id;
+
+    const q = await pool.query(
+      `SELECT
+         p.id AS prescription_id,
+         p.consultation_id,
+         p.patient_id,
+         p.doctor_id,
+         p.issued_at,
+         p.doctor_notes,
+         p.created_at,
+         COALESCE(c.status::text, 'imported') AS status,
+         c.consultation_date,
+         d.full_name AS doctor_name,
+         d.specialization,
+         cl.clinic_name,
+         (p.consultation_id IS NULL) AS is_legacy_import,
+         jsonb_agg(
+           json_build_object(
+             'drug_name', pi.drug_name,
+             'dosage', pi.dosage,
+             'frequency', pi.frequency,
+             'duration_days', pi.duration_days
+           )
+         ) AS items
+       FROM prescriptions p
+       LEFT JOIN prescription_items pi ON pi.prescription_id = p.id
+       LEFT JOIN consultations c ON c.id = p.consultation_id
+       LEFT JOIN doctors d ON d.id = p.doctor_id
+       LEFT JOIN LATERAL (
+         SELECT clinic_name
+         FROM clinics
+         WHERE doctor_id = d.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) cl ON true
+       WHERE p.id = $1 AND p.patient_id = $2
+       GROUP BY
+         p.id, p.consultation_id, p.patient_id, p.doctor_id,
+         p.issued_at, p.doctor_notes, p.created_at,
+         c.status, c.consultation_date,
+         d.full_name, d.specialization, cl.clinic_name`,
+      [prescriptionId, patientId]
+    );
+
+    if (q.rowCount === 0) {
+      return errorResponse(res, 404, 'NOT_FOUND', 'Prescription not found');
+    }
+
+    const result = q.rows[0];
+    if (result.items && result.items.length === 1 && result.items[0].drug_name === null) {
+      result.items = [];
+    }
+
+    return successResponse(res, 200, result, 'Operation successful.');
+  } catch (err) {
+    return next(err);
+  }
+}
+
 async function grantDoctorAccess(req, res, next) {
   try {
     const { doctor_id, expires_at } = req.body;
@@ -472,6 +615,8 @@ module.exports = {
   updateOwnProfile,
   getOwnConsultations,
   getOwnPrescription,
+  getOwnPastPrescriptions,
+  getOwnPrescriptionById,
   grantDoctorAccess,
   revokeDoctorAccess,
   getAccessList,

@@ -8,7 +8,7 @@ async function createDoctorProfile(req, res, next) {
   try {
     const { full_name, license_number, specialization } = req.body;
 
- 
+
     if (!full_name || !license_number) {
       return errorResponse(res, 400, 'BAD_REQUEST', 'Missing required fields: full_name, license_number');
     }
@@ -200,10 +200,10 @@ async function searchPatientsForConsultation(req, res, next) {
          LIMIT $2`,
         [doctorId, limit]
       );
-      
+
       const rows = activePatients.rows.map(row => ({
-         ...row,
-         has_active_access: true,
+        ...row,
+        has_active_access: true,
       }));
       return successResponse(res, 200, rows, 'Operation successful.');
     }
@@ -283,8 +283,8 @@ async function updateOwnProfile(req, res, next) {
 
     const { full_name, specialization } = req.body;
 
-  
-    if (!full_name && !specialization ) {
+
+    if (!full_name && !specialization) {
       return errorResponse(res, 400, 'BAD_REQUEST', 'At least one field must be provided for update');
     }
 
@@ -303,7 +303,7 @@ async function updateOwnProfile(req, res, next) {
     const updatedFullName = full_name || currentProfile.full_name;
     const updatedSpecialization = specialization !== undefined ? specialization : currentProfile.specialization;
 
-  
+
     const updated = await pool.query(
       `UPDATE doctors
        SET full_name = $1, specialization = $2
@@ -344,7 +344,7 @@ async function getOwnConsultations(req, res, next) {
 }
 
 
-const getPatientDataDuringEmergency = async (req , res , next) => {
+const getPatientDataDuringEmergency = async (req, res, next) => {
   try {
     const doctorId = req.doctor?.id;
 
@@ -378,11 +378,11 @@ const getPatientDataDuringEmergency = async (req , res , next) => {
             'medicine-name', m.name,
             'dosage', m.dosage,
         'prescribed-for', m.prescibed_for,
-            'prescribed_by', (select d.full_name from doctors d where d.id = m.prescribed_by),
+            'prescribed_by', coalesce(m.doctor_name, (select d.full_name from doctors d where d.id = m.prescribed_by)),
         'date', m.prescibed_at
         )), '[]')
         from active_medication m
-      where m.user_id = p.user_id
+      where m.patient_id = p.id
     ) as "active-medications"
 
 from patients p
@@ -397,10 +397,10 @@ where p.id = $1;` , [patientId]
        left join clinics c on c.doctor_id = d.id and c.id = $2
        left join emergency_info e on e.patient_id = $3
        left join patients p on p.id = $3
-       where d.id = $1`,[doctorId , clinicId , patientId]
+       where d.id = $1`, [doctorId, clinicId, patientId]
     )
     const len = getEmergencyContact.rowCount;
-    for(let i = 0 ; i < len ; i++ ){
+    for (let i = 0; i < len; i++) {
       const data = getEmergencyContact.rows[i];
       await sendMail(data);
     }

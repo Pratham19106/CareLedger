@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getPatientPrescriptionById, getPatientPrescriptions } from '../../api/patients';
-import { formatDate, titleCase } from '../../utils/formatters';
+import { formatConsultationId, formatDate, titleCase } from '../../utils/formatters';
 
 function PatientConsultationsPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -90,7 +90,7 @@ function PatientConsultationsPage() {
               <div style={{ marginBottom: '20px', padding: '12px', background: '#f9f9f6', borderRadius: '8px', border: '1px solid #eeedea', fontSize: '13px' }}>
                 <p style={{ margin: '0 0 6px 0' }}><strong>Recorded:</strong> {new Date(selectedPrescription.reference_date || selectedPrescription.issued_at).toLocaleString()}</p>
                 <p style={{ margin: '0 0 6px 0' }}><strong>Source:</strong> {selectedPrescription.is_legacy_import ? 'Legacy upload' : 'Consultation'}</p>
-                <p style={{ margin: 0 }}><strong>Consultation ID:</strong> {selectedPrescription.consultation_id || '-'}</p>
+                <p style={{ margin: 0 }}><strong>Consultation ID:</strong> {formatConsultationId(selectedPrescription.consultation_id)}</p>
               </div>
             ) : null}
 

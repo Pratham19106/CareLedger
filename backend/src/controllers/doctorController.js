@@ -382,7 +382,7 @@ const getPatientDataDuringEmergency = async (req , res , next) => {
         'date', m.prescibed_at
         )), '[]')
         from active_medication m
-      where m.user_id = p.user_id
+      where m.patient_id = p.id
     ) as "active-medications"
 
 from patients p

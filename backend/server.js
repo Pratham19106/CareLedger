@@ -13,16 +13,16 @@ async function startServer() {
             console.log('[SERVER] Initializing OCR service...');
             const ocrManager = require('./src/utils/ocrManager');
             await ocrManager.initialize();
-            console.log('[SERVER] ✅ OCR service initialized and ready!');
+            console.log('[SERVER] OCR service initialized and ready!');
         } else {
-            console.log('[SERVER] ⚠️  OCR service disabled (set ENABLE_OCR=true in .env to enable)');
+            console.log('[SERVER]  OCR service disabled (set ENABLE_OCR=true in .env to enable)');
         }
 
         app.listen(PORT, () => {
-            console.log(`[SERVER] 🚀 Server listening on port ${PORT}`);
+            console.log(`[SERVER] Server listening on port ${PORT}`);
         });
     } catch (err) {
-        console.error('[SERVER] ❌ Failed to initialize:', err.message);
+        console.error('[SERVER] Failed to initialize:', err.message);
         console.error('[SERVER] Server startup aborted.');
         process.exit(1);
     }

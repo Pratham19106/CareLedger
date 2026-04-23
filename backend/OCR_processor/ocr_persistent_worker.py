@@ -17,12 +17,10 @@ from google import genai
 from google.genai import types
 from ollama import Client
 
-# ── API SELECTION ──────────────────────────────────────────────────────────────
 USE_GEMINI = False
 USE_OLLAMA = True
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "deepseek-v3.2:cloud")
 
-# ── Initialize Clients ─────────────────────────────────────────────────────────
 if USE_GEMINI:
     gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
@@ -34,7 +32,6 @@ if not USE_GEMINI:
         headers=ollama_headers
     )
 
-# ── Global OCR Manager (Persistent) ────────────────────────────────────────────
 ocr_manager = None
 
 PLACEHOLDER_DRUG = {
@@ -119,7 +116,6 @@ def parse_prescription(ocr_text: str, request_id: str = "unknown") -> dict:
     raw = ""
 
     try:
-        # ── Using Gemini API ───────────────────────────────────────────────────
         if USE_GEMINI:
             emit_checkpoint(
                 "LLM_CALL",
@@ -285,7 +281,6 @@ def process_request(image_path: str, request_id: str):
             request_id=request_id,
         )
 
-        # ── Checkpoint 1: File Validation ──────────────────────────────────
         emit_checkpoint("FILE_CHECK", "in_progress", f"Checking if file exists: {image_path}", request_id=request_id)
 
         if not os.path.exists(image_path):
@@ -315,7 +310,6 @@ def process_request(image_path: str, request_id: str):
                 emit_message("done", {"request_id": request_id, "success": False, "error": str(e)})
                 return
 
-        # ── Checkpoint 2: Ensure OCR is initialized ────────────────────────
         emit_checkpoint("OCR_CHECK", "in_progress", "Checking OCR initialization status", request_id=request_id)
 
         if ocr_manager.is_initialized():
@@ -325,7 +319,6 @@ def process_request(image_path: str, request_id: str):
             emit_message("done", {"request_id": request_id, "success": False})
             return
 
-        # ── Checkpoint 3: Run OCR Prediction (all pages) ───────────────────
         total_pages = len(ocr_image_paths)
         emit_checkpoint(
             "OCR_PREDICTION", "in_progress",
@@ -370,7 +363,6 @@ def process_request(image_path: str, request_id: str):
         else:
             emit_checkpoint("PARSING", "completed", f"Parsed {len(prescription.get('drugs', []))} drugs", request_id=request_id)
 
-        # ── Checkpoint 5: Complete ────────────────────────────────────────
         completion_status = "success"
         completion_message = "Prescription processing completed"
         if prescription.get("error"):
@@ -379,7 +371,6 @@ def process_request(image_path: str, request_id: str):
 
         emit_checkpoint("COMPLETE", completion_status, completion_message, prescription, request_id=request_id)
 
-        # ── Signal completion ──────────────────────────────────────────────
         cleanup_temp_files(pdf_temp_paths)  # Remove all PDF page temp files
 
         emit_message("done", {

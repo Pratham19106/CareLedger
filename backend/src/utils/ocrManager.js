@@ -24,12 +24,34 @@ function generateRequestId() {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+function resolveWorkerScriptPath() {
+    const configuredPath = (process.env.OCR_WORKER_SCRIPT || '').trim();
+    if (configuredPath) {
+        return path.resolve(__dirname, configuredPath);
+    }
+
+    const pipeline = (process.env.OCR_PIPELINE || 'paddle').toLowerCase();
+    if (pipeline === 'vlm') {
+        return path.resolve(__dirname, '../../OCR_processor/ocr_vlm_persistent_worker.py');
+    }
+
+    return path.resolve(__dirname, '../../OCR_processor/ocr_persistent_worker.py');
+}
+
+function getPipelineNameFromPath(workerPath) {
+    const fileName = path.basename(workerPath).toLowerCase();
+    if (fileName.includes('vlm')) return 'vlm';
+    return 'paddle';
+}
+
 class OCRManager {
     constructor() {
         this.worker = null;
         this.isReady = false;
         this.requestHandlers = new Map(); // Map<requestId, {resolve, reject, checkpoints}>
         this.isInitializing = false;
+        this.pipeline = 'paddle';
+        this.workerScriptPath = null;
     }
 
     /**
@@ -58,10 +80,13 @@ class OCRManager {
                 return reject(new Error('Python not found in PATH'));
             }
 
-            const workerPath = path.resolve(__dirname, '../../OCR_processor/ocr_persistent_worker.py');
+            const workerPath = resolveWorkerScriptPath();
             const ocrDir = path.resolve(__dirname, '../../OCR_processor');
+            this.workerScriptPath = workerPath;
+            this.pipeline = getPipelineNameFromPath(workerPath);
 
             try {
+                console.log(`[OCR_MANAGER] Starting OCR worker (${this.pipeline}) at: ${workerPath}`);
                 this.worker = child_process.spawn(pythonCmd, [workerPath], {
                     cwd: ocrDir,
                     stdio: ['pipe', 'pipe', 'pipe']
@@ -274,7 +299,9 @@ class OCRManager {
             isReady: this.isReady,
             isInitializing: this.isInitializing,
             isAlive: this.worker != null,
-            pendingRequests: this.requestHandlers.size
+            pendingRequests: this.requestHandlers.size,
+            pipeline: this.pipeline,
+            workerScriptPath: this.workerScriptPath
         };
     }
 }

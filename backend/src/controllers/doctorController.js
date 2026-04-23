@@ -354,8 +354,14 @@ const getPatientDataDuringEmergency = async (req, res, next) => {
 
     const patientId = req.params.patientId;
     const clinicId = req.params.clinicId;
+
+    if (!isUuid(patientId) || !isUuid(clinicId)) {
+      return errorResponse(res, 400, 'VALIDATION_ERROR', 'patientId and clinicId must be valid UUIDs');
+    }
+
     const getPatientData = await pool.query(
-      `select p.full_name as "patient-name", p.gender as gender, p.blood_group as blood_group, age(p.date_of_birth) as age,
+      `select p.full_name as "patient-name", p.gender as gender, p.blood_group as blood_group,
+        extract(year from age(p.date_of_birth))::int as age_years,
     (
         select coalesce(json_agg(json_build_object(
             'allergy', a.allergen,
@@ -389,6 +395,10 @@ from patients p
 where p.id = $1;` , [patientId]
     )
 
+    if (getPatientData.rowCount === 0) {
+      return errorResponse(res, 404, 'NOT_FOUND', 'Patient not found.');
+    }
+
     const getEmergencyContact = await pool.query(
       `select d.full_name as "doctor-name" , c.address as "doctor-address" ,u.phone as "doctor-contact-number" , c.clinic_name as "doctor-clinic-name" ,
        e.contact_email as "patient-emergency-email" , e.contact_name as "patient-emergency-name" , p.full_name as "patient-name" 
@@ -399,11 +409,18 @@ where p.id = $1;` , [patientId]
        left join patients p on p.id = $3
        where d.id = $1`, [doctorId, clinicId, patientId]
     )
-    const len = getEmergencyContact.rowCount;
-    for (let i = 0; i < len; i++) {
-      const data = getEmergencyContact.rows[i];
-      await sendMail(data);
+
+    const mailTargets = getEmergencyContact.rows.filter(
+      (row) => typeof row['patient-emergency-email'] === 'string' && row['patient-emergency-email'].trim().length > 0
+    );
+
+    const mailResults = await Promise.allSettled(mailTargets.map((data) => sendMail(data)));
+    const failedMailCount = mailResults.filter((result) => result.status === 'rejected').length;
+
+    if (failedMailCount > 0) {
+      console.error(`Emergency alerts partially failed: ${failedMailCount}/${mailTargets.length}`);
     }
+
     return successResponse(res, 200, getPatientData.rows, 'Operation successful.');
 
   } catch (error) {

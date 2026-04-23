@@ -276,7 +276,9 @@ const ocrHealth = (req, res, next) => {
             {
                 status: 'healthy',
                 ready: true,
-                pendingRequests: status.pendingRequests
+                pendingRequests: status.pendingRequests,
+                pipeline: status.pipeline,
+                worker_script: status.workerScriptPath
             },
             'OCR service is healthy'
         );
@@ -287,7 +289,9 @@ const ocrHealth = (req, res, next) => {
             {
                 status: 'initializing',
                 ready: false,
-                initializing: status.isInitializing
+                initializing: status.isInitializing,
+                pipeline: status.pipeline,
+                worker_script: status.workerScriptPath
             },
             'OCR service is initializing'
         );

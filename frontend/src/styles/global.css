@@ -3037,6 +3037,10 @@ input {
   font-weight: 700;
 }
 
+.doctor-form-full {
+  grid-column: 1 / -1;
+}
+
 .doctor-form-grid input {
   width: 100%;
   border: 1px solid #dddcd4;
@@ -3050,6 +3054,37 @@ input {
   outline: none;
   border-color: rgba(40, 58, 104, 0.44);
   box-shadow: 0 0 0 3px rgba(40, 58, 104, 0.1);
+}
+
+.clinic-logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clinic-logo-upload-row input[type='file'] {
+  width: 100%;
+  border: 1px dashed rgba(26, 74, 74, 0.35);
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.clinic-logo-help {
+  color: #5f6670;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.clinic-logo-preview {
+  width: 88px;
+  height: 88px;
+  margin-top: 2px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(26, 74, 74, 0.18);
+  background: #fff;
 }
 
 .doctor-form-actions {
@@ -3092,6 +3127,21 @@ input {
   place-items: center;
   background: rgba(220, 229, 108, 0.24);
   color: #4e5a1d;
+}
+
+.clinic-record-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  object-fit: cover;
+  border: 1px solid rgba(26, 74, 74, 0.2);
+  background: #ffffff;
+}
+
+.clinic-record-icon-fallback {
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .clinic-record-head h4 {

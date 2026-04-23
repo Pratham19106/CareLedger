@@ -121,47 +121,47 @@ async function updateConsultationStatus(req, res, next) {
 
 async function upsertPrescription(req, res, next) {
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
-    
-    const { consultationId } = req.params;  
-    const { items, doctor_notes } = req.body;             
-    
+
+    const { consultationId } = req.params;
+    const { items, doctor_notes } = req.body;
+
 
     if (!isUuid(consultationId)) {
       return errorResponse(res, 400, 'VALIDATION_ERROR', 'Invalid consultation ID');
     }
-    
-   
+
+
     if (!Array.isArray(items) || items.length === 0) {
       return errorResponse(res, 400, 'VALIDATION_ERROR', 'items must be a non-empty array');
     }
-    
+
     const doctorId = req.doctor?.id;
     if (!doctorId) {
       return errorResponse(res, 403, 'FORBIDDEN', 'Doctor context missing');
     }
-    
-    
+
+
     const consultation = await client.query(
       `SELECT id, patient_id, status FROM consultations 
        WHERE id = $1 AND doctor_id = $2`,
-      [consultationId, doctorId]  
+      [consultationId, doctorId]
     );
-    
+
     if (consultation.rowCount === 0) {
       return errorResponse(res, 404, 'NOT_FOUND', 'Consultation not found');
     }
-    
+
     const { status, patient_id } = consultation.rows[0];
-    
+
 
     if (status === 'completed') {
-      return errorResponse(res, 403, 'FORBIDDEN', 
+      return errorResponse(res, 403, 'FORBIDDEN',
         `Cannot modify prescription for ${status} consultation`);
     }
-    
+
     const prescription = await client.query(
       `INSERT INTO prescriptions (consultation_id, patient_id, doctor_id, doctor_notes)
        VALUES ($1, $2, $3, $4)
@@ -170,39 +170,39 @@ async function upsertPrescription(req, res, next) {
        RETURNING id`,
       [consultationId, patient_id, doctorId, doctor_notes || null]
     );
-    
+
     const prescriptionId = prescription.rows[0].id;
-    
+
     await client.query(
       `DELETE FROM prescription_items WHERE prescription_id = $1`,
       [prescriptionId]
     );
-    
+
 
     for (const item of items) {
       if (!item.drug_name || !item.dosage || !item.frequency || !item.duration_days) {
         await client.query('ROLLBACK');
-        return errorResponse(res, 400, 'VALIDATION_ERROR', 
+        return errorResponse(res, 400, 'VALIDATION_ERROR',
           'Each item must have drug_name, dosage, frequency, and duration_days');
       }
-      
+
       await client.query(
         `INSERT INTO prescription_items 
          (prescription_id, drug_name, dosage, frequency, duration_days)
          VALUES ($1, $2, $3, $4, $5)`,
-        [prescriptionId, item.drug_name, item.dosage, 
-         item.frequency, item.duration_days]
+        [prescriptionId, item.drug_name, item.dosage,
+          item.frequency, item.duration_days]
       );
     }
-    
+
     await client.query('COMMIT');
-    
+
     return successResponse(res, 200, {
       prescription_id: prescriptionId,
       consultation_id: consultationId,
       items_count: items.length
     }, 'Prescription saved successfully');
-    
+
   } catch (err) {
     await client.query('ROLLBACK');
     return next(err);
@@ -231,7 +231,7 @@ async function getPrescription(req, res, next) {
       [consultationId, doctorId]
     );
 
-    if ( consultation.rowCount === 0) {
+    if (consultation.rowCount === 0) {
       return errorResponse(res, 404, 'NOT_FOUND', 'Consultation not found');
     }
 
@@ -335,8 +335,41 @@ async function finalizeConsultation(req, res, next) {
            (prescription_id, drug_name, dosage, frequency, duration_days)
            VALUES ($1, $2, $3, $4, $5)`,
           [prescriptionId, item.drug_name, item.dosage,
-           item.frequency, item.duration_days]
+            item.frequency, item.duration_days]
         );
+
+        const prescribedFor = String(item.prescribed_for || '').trim()
+          || `${item.frequency} for ${item.duration_days} day${Number(item.duration_days) === 1 ? '' : 's'}`;
+
+        const existingMedication = await client.query(
+          `SELECT id
+           FROM active_medication
+           WHERE patient_id = $1
+             AND lower(name) = lower($2)
+           ORDER BY prescibed_at DESC NULLS LAST
+           LIMIT 1`,
+          [patientId, item.drug_name]
+        );
+
+        if (existingMedication.rowCount > 0) {
+          await client.query(
+            `UPDATE active_medication
+             SET dosage = $1,
+                 prescibed_for = $2,
+                 prescibed_at = now(),
+                 prescribed_by = $3,
+                 doctor_name = (SELECT full_name FROM doctors WHERE id = $3)
+             WHERE id = $4`,
+            [item.dosage, prescribedFor, doctorId, existingMedication.rows[0].id]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO active_medication
+             (name, dosage, prescibed_for, prescibed_at, prescribed_by, patient_id, doctor_name)
+             VALUES ($1, $2, $3, now(), $4, $5, (SELECT full_name FROM doctors WHERE id = $4))`,
+            [item.drug_name, item.dosage, prescribedFor, doctorId, patientId]
+          );
+        }
       }
     } else {
       // No items — just save doctor_notes if provided

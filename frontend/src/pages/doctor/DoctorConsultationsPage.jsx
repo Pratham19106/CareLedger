@@ -39,7 +39,12 @@ import {
   updatePatientCondition,
   upsertConsultationPrescription,
 } from '../../api/doctorConsultations';
-import { formatDate, titleCase, toDateInputValue } from '../../utils/formatters';
+import {
+  formatConsultationId,
+  formatDate,
+  titleCase,
+  toDateInputValue,
+} from '../../utils/formatters';
 
 const EMPTY_ITEM = {
   drug_name: '',
@@ -447,6 +452,7 @@ function DoctorConsultationsPage() {
 
     const patientName = snapshot.profile?.full_name || selectedPatient?.full_name || 'Patient';
     const patientHealthId = snapshot.profile?.health_id || selectedPatient?.health_id || 'N/A';
+    const consultationDisplayId = formatConsultationId(consultationId);
     const when = formatDate(new Date().toISOString());
     const clinicName = selectedClinic?.clinic_name || 'Clinic';
     const clinicAddress = selectedClinic?.address || 'Address not available';
@@ -559,7 +565,7 @@ function DoctorConsultationsPage() {
               <div class="rx-meta">
                 <p><strong>Patient:</strong> ${escapeHtml(patientName)}</p>
                 <p><strong>Health ID:</strong> ${escapeHtml(patientHealthId)}</p>
-                <p><strong>Consultation ID:</strong> ${escapeHtml(consultationId)}</p>
+                <p><strong>Consultation ID:</strong> ${escapeHtml(consultationDisplayId)}</p>
                 <p><strong>Date:</strong> ${escapeHtml(when)}</p>
               </div>
 
@@ -1104,7 +1110,7 @@ function DoctorConsultationsPage() {
 
                     <div className="consult-context-row">
                       <p>
-                        <strong>Consultation:</strong> {consultationId.slice(0, 12)}…
+                        <strong>Consultation:</strong> {formatConsultationId(consultationId)}
                       </p>
                       <label>
                         Clinic

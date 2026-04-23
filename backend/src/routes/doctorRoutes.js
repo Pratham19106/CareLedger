@@ -6,6 +6,7 @@ const doctorController = require('../controllers/doctorController');
 const allergyController = require('../controllers/allergyController');
 const conditionController = require('../controllers/conditionController');
 const emergencyController = require('../controllers/emergencyController');
+const activeMedicationController = require('../controllers/activePrescriptionController');
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ router.get('/consultations', requireVerifiedDoctor, doctorController.getOwnConsu
 router.get('/patients/:patientId/allergies', requireVerifiedDoctor, allergyController.getPatientAllergy);
 router.get('/patients/:patientId/chronic-conditions', requireVerifiedDoctor, conditionController.getPatientConditions);
 router.get('/patients/:patientId/emergency-info', requireVerifiedDoctor, emergencyController.getPatientEmergencyInfo);
+router.get('/patients/:patientId/active-medications', requireVerifiedDoctor, activeMedicationController.getPatientActiveMedicationForDoctor);
 
 //emergency data for patient
 router.get('/emergency/:patientId/:clinicId', requireVerifiedDoctor, doctorController.getPatientDataDuringEmergency);

@@ -40,3 +40,8 @@ export function titleCase(value) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
+
+export function formatConsultationId(value) {
+  if (!value) return '-';
+  return String(value).slice(0, 8);
+}

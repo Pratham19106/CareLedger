@@ -53,8 +53,11 @@ export async function deletePatientActiveMedication(id) {
   return response.data;
 }
 
-export async function startConsultation(patientId) {
-  const response = await client.post('/consultations', { patient_id: patientId });
+export async function startConsultation(patientId, clinicId) {
+  const response = await client.post('/consultations', {
+    patient_id: patientId,
+    clinic_id: clinicId,
+  });
   return response.data;
 }
 

@@ -12,16 +12,26 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getDoctorClinics } from '../../api/clinics';
 import { getDoctorConsultations, getDoctorProfile } from '../../api/doctors';
 import { formatDate, titleCase } from '../../utils/formatters';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+const CHART_WINDOW_DAYS = 14;
+
+function formatShortDateLabel(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 function DoctorOverviewPage() {
   const profileQuery = useQuery({ queryKey: ['doctor-profile'], queryFn: getDoctorProfile });
-  const consultQuery = useQuery({ queryKey: ['doctor-consultationLog'], queryFn: getDoctorConsultations });
+  const consultQuery = useQuery({
+    queryKey: ['doctor-consultationLog'],
+    queryFn: getDoctorConsultations,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+  });
   const clinicsQuery = useQuery({ queryKey: ['clinics'], queryFn: getDoctorClinics });
 
   const loading = profileQuery.isLoading || consultQuery.isLoading || clinicsQuery.isLoading;
@@ -62,15 +72,35 @@ function DoctorOverviewPage() {
   }, [consultations]);
 
   const trendData = useMemo(() => {
-    if (!consultations.length) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    return consultations
-      .slice(0, 18)
-      .reverse()
-      .map((item, index) => ({
-        slot: index + 1,
-        load: item.status === 'completed' ? 72 + index * 4 : 58 + index * 3,
-      }));
+    const dateBuckets = new Map();
+    for (let i = CHART_WINDOW_DAYS - 1; i >= 0; i -= 1) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      dateBuckets.set(day.toISOString().slice(0, 10), {
+        day,
+        load: 0,
+      });
+    }
+
+    consultations.forEach((item) => {
+      const date = new Date(item.consultation_date);
+      if (Number.isNaN(date.getTime())) return;
+
+      date.setHours(0, 0, 0, 0);
+      const key = date.toISOString().slice(0, 10);
+      const bucket = dateBuckets.get(key);
+      if (bucket) {
+        bucket.load += 1;
+      }
+    });
+
+    return Array.from(dateBuckets.values()).map((bucket) => ({
+      slot: formatShortDateLabel(bucket.day),
+      load: bucket.load,
+    }));
   }, [consultations]);
 
   const recentActivity = useMemo(

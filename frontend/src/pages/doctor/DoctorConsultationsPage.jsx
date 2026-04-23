@@ -21,7 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { getDoctorClinics } from '../../api/clinics';
-import { getDoctorConsultations } from '../../api/doctors';
+import { getDoctorConsultations, getDoctorProfile } from '../../api/doctors';
 import {
   createPatientActiveMedication,
   createPatientCondition,
@@ -168,6 +168,12 @@ function DoctorConsultationsPage() {
   });
   const clinics = clinicsRes?.data || [];
 
+  const { data: doctorProfileRes } = useQuery({
+    queryKey: ['doctor-profile'],
+    queryFn: getDoctorProfile,
+  });
+  const doctorName = doctorProfileRes?.data?.full_name || 'Attending Doctor';
+
   const selectedClinic = useMemo(() => clinics.find((c) => c.id === clinicId) || null, [clinics, clinicId]);
 
 
@@ -278,9 +284,15 @@ function DoctorConsultationsPage() {
 
   const confirmStartConsultation = async () => {
     if (!confirmPatient) return;
+
+    if (!clinicId) {
+      setNotice({ type: 'error', text: 'Select a clinic before starting consultation.' });
+      return;
+    }
+
     setWorking(true);
     try {
-      const response = await startConsultation(confirmPatient.id);
+      const response = await startConsultation(confirmPatient.id, clinicId);
       const nextConsultationId = response?.data?.id;
       if (!nextConsultationId) throw new Error('Missing consultation id');
 
@@ -557,6 +569,7 @@ function DoctorConsultationsPage() {
               <div class="rx-clinic">
                 <h1>${escapeHtml(clinicName)}</h1>
                 <p>${escapeHtml(clinicAddress)}</p>
+                <p>Doctor: ${escapeHtml(doctorName)}</p>
                 <p>Phone: ${escapeHtml(clinicPhone)} | Email: ${escapeHtml(clinicEmail)}</p>
               </div>
             </header>
@@ -568,6 +581,7 @@ function DoctorConsultationsPage() {
                 <p><strong>Health ID:</strong> ${escapeHtml(patientHealthId)}</p>
                 <p><strong>Consultation ID:</strong> ${escapeHtml(consultationDisplayId)}</p>
                 <p><strong>Date:</strong> ${escapeHtml(when)}</p>
+                <p><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
               </div>
 
               <table class="rx-table">
@@ -592,7 +606,7 @@ function DoctorConsultationsPage() {
             <footer class="rx-footer">
               <p>Generated digitally by CareLedger Clinical Workspace.</p>
               <div class="rx-sign">
-                <div class="rx-sign-line">Authorized Signature</div>
+                <div class="rx-sign-line">${escapeHtml(doctorName)}</div>
               </div>
             </footer>
           </article>

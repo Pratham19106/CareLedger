@@ -1,7 +1,6 @@
 const axios = require('axios');
 const { config } = require('dotenv');
 const nodemailer = require('nodemailer');
-const { config } = require('dotenv');
 
 config();
 

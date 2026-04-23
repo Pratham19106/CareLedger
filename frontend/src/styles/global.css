@@ -1636,6 +1636,7 @@ input {
 .modal-overlay {
   position: fixed;
   inset: 0;
+  z-index: 1000;
   background: rgba(20, 20, 22, 0.48);
   display: grid;
   place-items: center;
@@ -1649,6 +1650,108 @@ input {
   border-radius: 14px;
   background: #fff;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card-sticky-footer {
+  max-height: 90vh;
+}
+
+.modal-info-bar {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f9f9f6;
+  border-radius: 8px;
+  border: 1px solid #eeedea;
+  font-size: 13px;
+}
+
+.consult-pdf-preview-scrollable {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.modal-footer-sticky {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eaeaea;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+
+  .modal-overlay {
+    padding: 0;
+    place-items: center;
+    overflow-y: hidden;
+    align-items: stretch;
+    position: fixed;
+    inset: 0;
+  }
+
+  .modal-card {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+  }
+
+  .modal-card-sticky-footer {
+    max-height: none;
+  }
+
+  .modal-info-bar {
+    padding: 12px;
+  }
+
+  .panel-head.split {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .panel-head.split h3 {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .panel-head.split .text-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .consult-pdf-preview-scrollable {
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+  }
+
+  .consultation-pdf-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-footer-sticky {
+    background: #fff;
+    z-index: 10;
+    padding: 14px 12px;
+    border-top: 1px solid #eaeaea;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -1688,8 +1791,53 @@ input {
 }
 
 @media (max-width: 768px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  .patient-dashboard-layout {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
   .patient-main-panel {
     padding: 16px;
+    min-height: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .patient-content-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .patient-page-luxe {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-head {
+    flex-shrink: 0;
+  }
+
+  .patient-consultations-toolbar {
+    flex-shrink: 0;
+  }
+
+  .patient-consultations-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .patient-chart-wrap {
@@ -1720,6 +1868,7 @@ input {
 
   .main-panel {
     padding: 16px;
+    min-height: 100%;
   }
 
   .stats-grid,
@@ -4912,6 +5061,11 @@ input {
   color: #666;
 }
 
+/* Hide specific SVG circle identified from the inspected root path. */
+#root > div > div > div > div > svg > circle {
+  display: none;
+}
+
 
 /* ── Responsive: workspace stacks on small screens ── */
 
@@ -4967,6 +5121,47 @@ input {
 .active-medications-doctor,
 .active-medications-date {
   color: #4a4d56;
+}
+
+/* Patient consultations */
+
+.patient-consultations-toolbar {
+  margin: 10px 0 12px;
+}
+
+.patient-consultations-search {
+  width: min(560px, 100%);
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid #d8d8d1;
+  border-radius: 10px;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.patient-consultations-search:focus {
+  border-color: rgba(26, 74, 74, 0.45);
+  box-shadow: 0 0 0 3px rgba(26, 74, 74, 0.08);
+}
+
+.patient-consultations-table-wrap {
+  max-height: 440px;
+  overflow: auto;
+  border: 1px solid #ecebe6;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.patient-consultations-table-wrap .table {
+  margin: 0;
+}
+
+.patient-consultations-table-wrap .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8f8f4;
 }
 
 

@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   getAllergies,
   getChronicConditions,
@@ -20,13 +20,36 @@ import {
   getPatientAccessList,
   getPatientConsultations,
 } from '../../api/patients';
-import { formatDate, titleCase } from '../../utils/formatters';
+import { formatDate, titleCase, toDateInputValue } from '../../utils/formatters';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+const CHART_WINDOW_DAYS = 14;
+
+function formatShortDateLabel(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isAccessGrantActive(row) {
+  const status = String(row?.status || '').toLowerCase();
+  if (status !== 'active') return false;
+  if (!row?.expires_at) return true;
+
+  const normalized = toDateInputValue(row.expires_at);
+  if (!normalized) return true;
+
+  const expiryEnd = new Date(`${normalized}T23:59:59.999`);
+  if (Number.isNaN(expiryEnd.getTime())) return true;
+  return expiryEnd.getTime() >= Date.now();
+}
 
 function PatientOverviewPage() {
   const profileQuery = useQuery({ queryKey: ['patient-profile'], queryFn: getOwnPatientProfile });
-  const consultQuery = useQuery({ queryKey: ['patient-consultations'], queryFn: getPatientConsultations });
+  const consultQuery = useQuery({
+    queryKey: ['patient-consultations'],
+    queryFn: getPatientConsultations,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+  });
   const allergyQuery = useQuery({ queryKey: ['patient-allergies'], queryFn: getAllergies });
   const conditionQuery = useQuery({ queryKey: ['patient-conditions'], queryFn: getChronicConditions });
   const accessQuery = useQuery({ queryKey: ['patient-access-list'], queryFn: getPatientAccessList });
@@ -41,7 +64,7 @@ function PatientOverviewPage() {
   const accessList = accessQuery.data?.data || [];
 
   const activeAccessDoctors = useMemo(
-    () => accessList.filter((row) => String(row.status).toLowerCase() === 'active'),
+    () => accessList.filter((row) => isAccessGrantActive(row)),
     [accessList]
   );
 
@@ -62,15 +85,35 @@ function PatientOverviewPage() {
   }, [consultations]);
 
   const trendData = useMemo(() => {
-    if (!consultations.length) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    return consultations
-      .slice(0, 18)
-      .reverse()
-      .map((item, index) => ({
-        slot: index + 1,
-        visits: item.status === 'completed' ? 80 + index * 5 : 55 + index * 4,
-      }));
+    const dateBuckets = new Map();
+    for (let i = CHART_WINDOW_DAYS - 1; i >= 0; i -= 1) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      dateBuckets.set(day.toISOString().slice(0, 10), {
+        day,
+        visits: 0,
+      });
+    }
+
+    consultations.forEach((item) => {
+      const date = new Date(item.consultation_date);
+      if (Number.isNaN(date.getTime())) return;
+
+      date.setHours(0, 0, 0, 0);
+      const key = date.toISOString().slice(0, 10);
+      const bucket = dateBuckets.get(key);
+      if (bucket) {
+        bucket.visits += 1;
+      }
+    });
+
+    return Array.from(dateBuckets.values()).map((bucket) => ({
+      slot: formatShortDateLabel(bucket.day),
+      visits: bucket.visits,
+    }));
   }, [consultations]);
 
   const recentActivity = useMemo(

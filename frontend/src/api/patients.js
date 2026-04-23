@@ -22,7 +22,13 @@ export async function createPatientProfile(payload) {
 }
 
 export async function getPatientConsultations() {
-  const response = await apiClient.get('/patients/consultations');
+  const response = await apiClient.get('/patients/consultations', {
+    params: { _ts: Date.now() },
+    headers: {
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+  });
   return response.data;
 }
 

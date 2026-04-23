@@ -3,7 +3,33 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPatientAccessList, grantDoctorAccess, revokeDoctorAccess } from '../../api/patients';
 import { searchDoctorDirectory } from '../../api/doctors';
 import { LuxeDateTimeField } from '../../components/common/LuxeDatePickers';
-import { formatDate, titleCase } from '../../utils/formatters';
+import { formatDate, titleCase, toDateInputValue } from '../../utils/formatters';
+
+function getEffectiveAccessStatus(row) {
+  const status = String(row?.status || '').toLowerCase();
+  if (status !== 'active') {
+    return {
+      label: titleCase(row?.status || 'inactive'),
+      tone: 'neutral',
+    };
+  }
+
+  if (!row?.expires_at) {
+    return { label: 'Active', tone: 'success' };
+  }
+
+  const normalized = toDateInputValue(row.expires_at);
+  if (!normalized) {
+    return { label: 'Active', tone: 'success' };
+  }
+
+  const expiryEnd = new Date(`${normalized}T23:59:59.999`);
+  const isExpired = Number.isNaN(expiryEnd.getTime()) ? false : expiryEnd.getTime() < Date.now();
+
+  return isExpired
+    ? { label: 'Expired', tone: 'warn' }
+    : { label: 'Active', tone: 'success' };
+}
 
 function PatientAccessPage() {
   const queryClient = useQueryClient();
@@ -121,6 +147,12 @@ function PatientAccessPage() {
   };
 
   const handleRevoke = (doctor) => {
+    const effective = getEffectiveAccessStatus(doctor);
+    if (effective.label !== 'Active') {
+      setMessage('This access record is not active, so there is nothing to revoke.');
+      return;
+    }
+
     setDoctorToRevoke(doctor);
     setShowRevokeConfirm(true);
   };
@@ -210,16 +242,21 @@ function PatientAccessPage() {
           </thead>
           <tbody>
             {list.map((row) => (
-              <tr key={row.id} onClick={() => handleRevoke(row)}>
-                <td>{row.doctor_name || row.doctor_id}</td>
-                <td>{formatDate(row.created_at)}</td>
-                <td>{formatDate(row.expires_at)}</td>
-                <td>
-                  <span className={`status-pill ${String(row.status || '').toLowerCase() === 'active' ? 'success' : 'neutral'}`}>
-                    {titleCase(row.status)}
-                  </span>
-                </td>
-              </tr>
+              (() => {
+                const effective = getEffectiveAccessStatus(row);
+                return (
+                  <tr key={row.id} onClick={() => handleRevoke(row)}>
+                    <td>{row.doctor_name || row.doctor_id}</td>
+                    <td>{formatDate(row.created_at)}</td>
+                    <td>{formatDate(row.expires_at)}</td>
+                    <td>
+                      <span className={`status-pill ${effective.tone}`}>
+                        {effective.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })()
             ))}
             {list.length === 0 && !loading ? (
               <tr>

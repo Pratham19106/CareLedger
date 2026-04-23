@@ -60,12 +60,14 @@ CREATE TABLE public.consultations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   patient_id uuid,
   doctor_id uuid,
+  clinic_id uuid,
   consultation_date timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   status USER-DEFINED DEFAULT 'in_progress'::consultation_status,
   updated_at timestamp without time zone DEFAULT now(),
   CONSTRAINT consultations_pkey PRIMARY KEY (id),
   CONSTRAINT consultations_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
-  CONSTRAINT consultations_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctors(id)
+  CONSTRAINT consultations_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctors(id),
+  CONSTRAINT consultations_clinic_id_fkey FOREIGN KEY (clinic_id) REFERENCES public.clinics(id)
 );
 CREATE TABLE public.doctors (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

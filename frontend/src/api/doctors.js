@@ -23,7 +23,13 @@ export async function updateDoctorProfile(payload) {
 }
 
 export async function getDoctorConsultations() {
-  const response = await client.get('/doctors/consultations');
+  const response = await client.get('/doctors/consultations', {
+    params: { _ts: Date.now() },
+    headers: {
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+  });
   return response.data;
 }
 

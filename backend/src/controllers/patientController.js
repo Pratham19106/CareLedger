@@ -227,16 +227,11 @@ async function getOwnConsultations(req, res, next) {
     const consultations = await pool.query(
       `SELECT
          c.id, c.doctor_id, c.consultation_date, c.status, c.updated_at,
-         d.full_name AS doctor_name, d.specialization, cl.clinic_name
+         d.full_name AS doctor_name, d.specialization,
+         cl.clinic_name, cl.address AS clinic_address, cl.phone AS clinic_phone, cl.email AS clinic_email
        FROM consultations c
        JOIN doctors d ON d.id = c.doctor_id
-       LEFT JOIN LATERAL (
-         SELECT clinic_name
-         FROM clinics
-         WHERE doctor_id = d.id
-         ORDER BY created_at DESC
-         LIMIT 1
-       ) cl ON true
+       LEFT JOIN clinics cl ON cl.id = c.clinic_id
        WHERE c.patient_id = $1
        ORDER BY c.consultation_date DESC`,
       [patientId]
@@ -287,6 +282,10 @@ async function getOwnPrescription(req, res, next) {
          p.doctor_id,
          p.issued_at,
          p.doctor_notes,
+         cl.clinic_name,
+         cl.address AS clinic_address,
+         cl.phone AS clinic_phone,
+         cl.email AS clinic_email,
          jsonb_agg(
         json_build_object(
             'drug_name', p_items.drug_name, 
@@ -297,8 +296,11 @@ async function getOwnPrescription(req, res, next) {
       ) AS items
        from prescriptions p
        left join prescription_items p_items ON p_items.prescription_id = p.id
+        left join consultations c ON c.id = p.consultation_id
+        left join clinics cl ON cl.id = c.clinic_id
        where p.consultation_id = $1
-       group by p.id, p.consultation_id, p.patient_id, p.doctor_id, p.issued_at`,
+        group by p.id, p.consultation_id, p.patient_id, p.doctor_id, p.issued_at, p.doctor_notes,
+         cl.clinic_name, cl.address, cl.phone, cl.email`,
       [consultationId]
     );
 
@@ -350,18 +352,15 @@ async function getOwnPastPrescriptions(req, res, next) {
          d.full_name AS doctor_name,
          d.specialization,
          cl.clinic_name,
+         cl.address AS clinic_address,
+         cl.phone AS clinic_phone,
+         cl.email AS clinic_email,
          (p.consultation_id IS NULL) AS is_legacy_import,
          COALESCE(item_counts.items_count, 0) AS items_count
        FROM prescriptions p
        LEFT JOIN consultations c ON c.id = p.consultation_id
        LEFT JOIN doctors d ON d.id = p.doctor_id
-       LEFT JOIN LATERAL (
-         SELECT clinic_name
-         FROM clinics
-         WHERE doctor_id = d.id
-         ORDER BY created_at DESC
-         LIMIT 1
-       ) cl ON true
+       LEFT JOIN clinics cl ON cl.id = c.clinic_id
        LEFT JOIN LATERAL (
          SELECT COUNT(*)::int AS items_count
          FROM prescription_items pi
@@ -416,7 +415,11 @@ async function getOwnPrescriptionById(req, res, next) {
          d.full_name AS doctor_name,
          d.specialization,
          cl.clinic_name,
+         cl.address AS clinic_address,
+         cl.phone AS clinic_phone,
+         cl.email AS clinic_email,
          (p.consultation_id IS NULL) AS is_legacy_import,
+         COALESCE(active_meds.continued_medications, '[]'::jsonb) AS continued_medications,
          jsonb_agg(
            json_build_object(
              'drug_name', pi.drug_name,
@@ -429,19 +432,28 @@ async function getOwnPrescriptionById(req, res, next) {
        LEFT JOIN prescription_items pi ON pi.prescription_id = p.id
        LEFT JOIN consultations c ON c.id = p.consultation_id
        LEFT JOIN doctors d ON d.id = p.doctor_id
+       LEFT JOIN clinics cl ON cl.id = c.clinic_id
        LEFT JOIN LATERAL (
-         SELECT clinic_name
-         FROM clinics
-         WHERE doctor_id = d.id
-         ORDER BY created_at DESC
-         LIMIT 1
-       ) cl ON true
+         SELECT jsonb_agg(
+           jsonb_build_object(
+             'name', am.name,
+             'dosage', am.dosage,
+             'prescibed_for', am.prescibed_for,
+             'prescibed_at', am.prescibed_at,
+             'doctor_name', am.doctor_name
+           )
+           ORDER BY am.prescibed_at DESC NULLS LAST
+         ) AS continued_medications
+         FROM active_medication am
+         WHERE am.patient_id = p.patient_id
+       ) active_meds ON true
        WHERE p.id = $1 AND p.patient_id = $2
        GROUP BY
          p.id, p.consultation_id, p.patient_id, p.doctor_id,
          p.issued_at, p.doctor_notes, p.created_at,
          c.status, c.consultation_date,
-         d.full_name, d.specialization, cl.clinic_name`,
+         d.full_name, d.specialization, cl.clinic_name, cl.address, cl.phone, cl.email,
+         active_meds.continued_medications`,
       [prescriptionId, patientId]
     );
 

@@ -6,7 +6,7 @@ const CONSULTATION_STATUSES = new Set(['in_progress', 'completed']);
 
 async function startConsultation(req, res, next) {
   try {
-    const { patient_id } = req.body || {};
+    const { patient_id, clinic_id } = req.body || {};
 
     if (!patient_id) {
       return errorResponse(res, 400, 'BAD_REQUEST', 'Missing required field: patient_id');
@@ -14,6 +14,14 @@ async function startConsultation(req, res, next) {
 
     if (!isUuid(patient_id)) {
       return errorResponse(res, 400, 'VALIDATION_ERROR', 'patient_id must be a valid UUID');
+    }
+
+    if (!clinic_id) {
+      return errorResponse(res, 400, 'BAD_REQUEST', 'Missing required field: clinic_id');
+    }
+
+    if (!isUuid(clinic_id)) {
+      return errorResponse(res, 400, 'VALIDATION_ERROR', 'clinic_id must be a valid UUID');
     }
 
     const doctorId = req.doctor?.id;
@@ -36,11 +44,23 @@ async function startConsultation(req, res, next) {
       return errorResponse(res, 403, 'FORBIDDEN', 'No active access permission for this patient');
     }
 
+    const clinic = await pool.query(
+      `select id
+       from clinics
+       where id = $1 and doctor_id = $2
+       limit 1`,
+      [clinic_id, doctorId]
+    );
+
+    if (clinic.rowCount === 0) {
+      return errorResponse(res, 403, 'FORBIDDEN', 'Selected clinic does not belong to this doctor');
+    }
+
     const inserted = await pool.query(
-      `insert into consultations (patient_id, doctor_id, status)
-       values ($1, $2, 'in_progress')
-       returning id, patient_id, doctor_id, status, consultation_date`,
-      [patient_id, doctorId]
+      `insert into consultations (patient_id, doctor_id, clinic_id, status)
+       values ($1, $2, $3, 'in_progress')
+       returning id, patient_id, doctor_id, clinic_id, status, consultation_date`,
+      [patient_id, doctorId, clinic_id]
     );
 
     return successResponse(res, 201, inserted.rows[0], 'Consultation created.');

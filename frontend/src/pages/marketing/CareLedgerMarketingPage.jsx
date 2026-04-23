@@ -179,13 +179,46 @@ function CareLedgerMarketingPage() {
       });
 
       const statValues = q('.mk-stat-value');
+      const statItems = q('.mk-stat-item');
       ScrollTrigger.create({
         trigger: statsRow,
         start: 'top 85%',
         once: true,
         onEnter: () => {
+          gsap.fromTo(
+            statItems,
+            { y: 20, opacity: 0, scale: 0.97 },
+            {
+              y: 0,
+              opacity: 1,
+              scale: 1,
+              duration: 0.55,
+              ease: 'power3.out',
+              stagger: 0.1,
+            }
+          );
+
           statValues.forEach((node) => {
-            const target = Number(node.dataset.target || 0);
+            if (node.dataset.static === 'true') {
+              gsap.fromTo(
+                node,
+                { filter: 'blur(3px)', opacity: 0.7 },
+                {
+                  filter: 'blur(0px)',
+                  opacity: 1,
+                  duration: 0.5,
+                  ease: 'power2.out',
+                  delay: 0.15,
+                }
+              );
+              return;
+            }
+
+            const target = Number(node.dataset.target);
+            if (Number.isNaN(target)) {
+              return;
+            }
+
             const suffix = node.dataset.suffix || '';
             const proxy = { value: 0 };
             gsap.to(proxy, {
@@ -289,7 +322,7 @@ function CareLedgerMarketingPage() {
         </header>
 
         <div className="mk-hero-content">
-          <p className="mk-hero-eyebrow">HEALTHCARE · REIMAGINED · 2025</p>
+          <p className="mk-hero-eyebrow">HEALTHCARE · REIMAGINED</p>
 
           <h1 className="mk-hero-title" aria-label="Your Medical Records, Finally Under Your Control.">
             <span className="mk-hero-line"><span className="mk-hero-line-text">Your Medical Records,</span></span>
@@ -297,9 +330,11 @@ function CareLedgerMarketingPage() {
             <span className="mk-hero-line"><span className="mk-hero-line-text">Your Control.</span></span>
           </h1>
 
-          <p className="mk-hero-sub">
+          <p className="mk-hero-sub font-small">
             CareLedger gives patients, doctors, and clinics a single secure platform for every consultation,
-            prescription, and health record.
+            prescription, and
+            <br />
+            health record.
           </p>
 
           <div className="mk-hero-actions">
@@ -309,20 +344,16 @@ function CareLedgerMarketingPage() {
 
           <div className="mk-hero-stats" id="how-it-works">
             <div className="mk-stat-item">
-              <span className="mk-stat-value" data-target="500" data-suffix="+">0+</span>
-              <p>Patients</p>
+              <span className="mk-stat-value" data-static="true">Patient • Doctor • Admin</span>
+              <p>Role-based platform</p>
             </div>
             <div className="mk-stat-item">
-              <span className="mk-stat-value" data-target="120" data-suffix="+">0+</span>
-              <p>Doctors</p>
+              <span className="mk-stat-value" data-static="true">JWT Secured</span>
+              <p>Protected API access</p>
             </div>
             <div className="mk-stat-item">
-              <span className="mk-stat-value" data-target="98" data-suffix="%">0%</span>
-              <p>Uptime</p>
-            </div>
-            <div className="mk-stat-item">
-              <span className="mk-stat-value" data-target="1">0</span>
-              <p>OCR Powered</p>
+              <span className="mk-stat-value" data-static="true">OCR Ready</span>
+              <p>Legacy prescription scanning</p>
             </div>
           </div>
         </div>

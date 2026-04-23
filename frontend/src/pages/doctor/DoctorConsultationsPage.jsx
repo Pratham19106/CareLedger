@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { jsPDF } from 'jspdf';
 import {
   AlertTriangle,
   CalendarDays,
@@ -460,7 +461,7 @@ function DoctorConsultationsPage() {
     const clinicEmail = selectedClinic?.email || 'Not available';
 
     const logoHtml = selectedClinic?.logo_url
-      ? `<img src="${escapeHtml(selectedClinic.logo_url)}" alt="Clinic logo" class="rx-logo-img" />`
+      ? `<img src="${escapeHtml(selectedClinic.logo_url)}" alt="Clinic logo" class="rx-logo-img" crossorigin="anonymous" referrerpolicy="no-referrer" />`
       : `<div class="rx-logo-fallback">${escapeHtml(clinicName.slice(0, 2).toUpperCase())}</div>`;
 
     const itemRows = payload.items
@@ -608,33 +609,147 @@ function DoctorConsultationsPage() {
     return html;
   };
 
-  const printPrescription = () => {
+  const downloadPrescription = async () => {
     setNotice({ type: '', text: '' });
 
-    let htmlForPrint = pdfPreviewHtml;
-    if (!htmlForPrint) {
-      htmlForPrint = generatePdf({ notify: false });
-      if (!htmlForPrint) {
-        return;
-      }
-    }
-
-    setShowPatientDetails(false);
-
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=960,height=720');
-    if (!printWindow) {
-      setNotice({ type: 'error', text: 'Popup blocked. Allow popups to print.' });
+    if (!consultationId) {
+      setNotice({ type: 'error', text: 'Start a consultation before downloading PDF.' });
       return;
     }
-    printWindow.document.open();
-    printWindow.document.write(htmlForPrint);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    if (!selectedClinic) {
+      setNotice({ type: 'error', text: 'Select a clinic before downloading PDF.' });
+      return;
+    }
+    const payload = buildPayload();
+    if (!payload.ok) {
+      setNotice({ type: 'error', text: 'Complete medicine rows before downloading PDF.' });
+      return;
+    }
 
-    setNotice({ type: 'success', text: 'Print preview opened.' });
+    const html = pdfPreviewHtml || generatePdf({ notify: false });
+    if (!html) {
+      return;
+    }
+
+    const patientName = snapshot.profile?.full_name || selectedPatient?.full_name || 'Patient';
+    const consultationDisplayId = formatConsultationId(consultationId);
+    const safePatient = String(patientName).replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '');
+    const filename = `prescription_${safePatient || 'patient'}_${consultationDisplayId}.pdf`;
+
+    let frame = null;
+    try {
+      setWorking(true);
+
+      frame = document.createElement('iframe');
+      frame.setAttribute('aria-hidden', 'true');
+      frame.style.position = 'fixed';
+      frame.style.left = '-99999px';
+      frame.style.top = '0';
+      frame.style.width = '794px';
+      frame.style.height = '1123px';
+      frame.style.opacity = '0';
+      frame.style.pointerEvents = 'none';
+      document.body.appendChild(frame);
+
+      await new Promise((resolve) => {
+        frame.onload = () => resolve();
+        frame.srcdoc = html;
+      });
+
+      const frameDoc = frame.contentDocument;
+      if (!frameDoc?.body) {
+        throw new Error('Unable to prepare PDF content.');
+      }
+
+      if (frameDoc.fonts?.ready) {
+        await frameDoc.fonts.ready;
+      }
+
+      const imageLoadPromises = Array.from(frameDoc.images || []).map((image) => {
+        if (image.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      });
+      await Promise.all(imageLoadPromises);
+
+      const { default: html2canvas } = await import('html2canvas');
+      const previewRoot = frameDoc.querySelector('.rx-paper') || frameDoc.body;
+
+      const canvas = await html2canvas(previewRoot, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: Math.max(previewRoot.scrollWidth, 794),
+        windowHeight: previewRoot.scrollHeight,
+      });
+
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const renderWidth = pageWidth;
+
+      const fullImageHeight = (canvas.height * renderWidth) / canvas.width;
+      const pagePixelHeight = Math.floor((pageHeight * canvas.width) / renderWidth);
+
+      if (fullImageHeight <= pageHeight) {
+        const imageData = canvas.toDataURL('image/png', 1.0);
+        doc.addImage(imageData, 'PNG', 0, 0, renderWidth, fullImageHeight, undefined, 'FAST');
+      } else {
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        const pageContext = pageCanvas.getContext('2d');
+        if (!pageContext) {
+          throw new Error('Unable to create canvas context for PDF export.');
+        }
+
+        let renderedPixels = 0;
+        let pageIndex = 0;
+
+        while (renderedPixels < canvas.height) {
+          const sliceHeight = Math.min(pagePixelHeight, canvas.height - renderedPixels);
+          pageCanvas.height = sliceHeight;
+
+          pageContext.clearRect(0, 0, pageCanvas.width, sliceHeight);
+          pageContext.drawImage(
+            canvas,
+            0,
+            renderedPixels,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            pageCanvas.width,
+            sliceHeight,
+          );
+
+          const pageImage = pageCanvas.toDataURL('image/png', 1.0);
+          const pageRenderHeight = (sliceHeight * renderWidth) / canvas.width;
+
+          if (pageIndex > 0) {
+            doc.addPage();
+          }
+          doc.addImage(pageImage, 'PNG', 0, 0, renderWidth, pageRenderHeight, undefined, 'FAST');
+
+          renderedPixels += sliceHeight;
+          pageIndex += 1;
+        }
+      }
+
+      doc.save(filename);
+      setShowPatientDetails(false);
+      setNotice({ type: 'success', text: 'Prescription PDF downloaded from the exact preview layout.' });
+    } catch {
+      setNotice({ type: 'error', text: 'Unable to download preview PDF. Please generate preview and try again.' });
+    } finally {
+      setWorking(false);
+      if (frame?.parentNode) {
+        frame.parentNode.removeChild(frame);
+      }
+    }
   };
 
   // ── Chronic condition helpers ──
@@ -1195,10 +1310,10 @@ function DoctorConsultationsPage() {
                       <button
                         type="button"
                         className="submit-btn slim"
-                        onClick={printPrescription}
+                        onClick={downloadPrescription}
                         disabled={working}
                       >
-                        <FileText size={14} /> Print PDF
+                        <FileText size={14} /> Download PDF
                       </button>
                     </div>
 

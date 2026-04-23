@@ -367,7 +367,7 @@ function MarketingBelowFold() {
             <span>more efficient prescription logging vs paper workflows</span>
           </article>
           <article className="mk-impact-item">
-            <p className="mk-impact-number" data-target="8" data-prefix="< " data-suffix=" sec">0 sec</p>
+            <p className="mk-impact-number" data-target="25" data-prefix="< " data-suffix=" sec">0 sec</p>
             <span>OCR scan time per prescription</span>
           </article>
           <article className="mk-impact-item">
@@ -399,7 +399,8 @@ function MarketingBelowFold() {
       </section>
 
       <section className="mk-cta-banner">
-        <h2 className="mk-cta-heading">Your records. Your rules. Starting now.</h2>
+        <h2 className="mk-cta-heading">Your records. Your rules.</h2>
+        <h2 className="mk-cta-heading">Starting now</h2>
         <div className="mk-cta-banner-actions">
           <Link to="/signup" className="mk-cta mk-cta-solid">Get Started for Free</Link>
           <a href="#overview" className="mk-cta mk-cta-muted">Read the docs</a>

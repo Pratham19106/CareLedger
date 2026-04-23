@@ -123,6 +123,12 @@ function DoctorEmergencyPage() {
   const allergies = Array.isArray(criticalData?.allergies) ? criticalData.allergies : [];
   const chronic = Array.isArray(criticalData?.['chronic-illness']) ? criticalData['chronic-illness'] : [];
   const meds = Array.isArray(criticalData?.['active-medications']) ? criticalData['active-medications'] : [];
+  const ageValue =
+    Number.isFinite(Number(criticalData?.age_years))
+      ? String(criticalData.age_years)
+      : Number.isFinite(Number(criticalData?.age?.years))
+        ? String(criticalData.age.years)
+        : '-';
 
   return (
     <section className="doctor-page-luxe emergency-artboard-page">
@@ -232,7 +238,7 @@ function DoctorEmergencyPage() {
                   <p><strong>Name:</strong> {criticalData['patient-name'] || selectedPatient.full_name}</p>
                   <p><strong>Gender:</strong> {criticalData.gender || '-'}</p>
                   <p><strong>Blood Group:</strong> {criticalData.blood_group || '-'}</p>
-                  <p><strong>Age:</strong> {String(criticalData.age || '-')}</p>
+                  <p><strong>Age:</strong> {ageValue}</p>
                 </section>
 
                 <section className="snapshot-mini-card emergency-critical-card">
